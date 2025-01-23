@@ -1,0 +1,229 @@
+version: '3.8'
+
+services:
+  # Mongo
+  mongo_1:
+    build: .\custommongo
+    container_name: mongodb1
+    hostname: mongodb1
+    networks:
+      - mongonet
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=adminpassword
+      - MONGO_INITDB_DATABASE=rentacar
+    command: --config /etc/mongod.conf --port 27017
+    healthcheck:
+      test: ["CMD", "mongosh", "--port" , "27017", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+
+  mongo_2:
+    build: .\custommongo
+    container_name: mongodb2
+    hostname: mongodb2
+    ports:
+      - "27018:27018"
+    networks:
+      - mongonet
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=adminpassword
+      - MONGO_INITDB_DATABASE=rentacar
+    command: --config /etc/mongod.conf --port 27018
+    healthcheck:
+      test: ["CMD", "mongosh", "--port" , "27018", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+
+  mongo_3:
+    build: .\custommongo
+    container_name: mongodb3
+    hostname: mongodb3
+    ports:
+      - "27019:27019"
+    networks:
+      - mongonet
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=adminpassword
+      - MONGO_INITDB_DATABASE=rentacar
+    command: --config /etc/mongod.conf --port 27019
+    healthcheck:
+      test: ["CMD", "mongosh", "--port" , "27019", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+
+  mongoinit:
+    build: .\custommongo
+    container_name: mongodbinit
+    hostname: mongodbinit
+    networks:
+      - mongonet
+    depends_on:
+      mongo_1:
+        condition: service_healthy
+      mongo_2:
+        condition: service_healthy
+      mongo_3:
+        condition: service_healthy
+
+    command: >
+      mongosh --host mongodb1:27017 --username admin --password adminpassword --authenticationDatabase admin --eval
+      '
+      rs.initiate(
+        {
+          _id: "replica_set_three_nodes",
+          version: 1,
+          members: [
+            { _id:0, host : "mongodb1:27017" },
+            { _id:1, host : "mongodb2:27018" },
+            { _id:2, host : "mongodb3:27019" }
+          ]
+        }
+      );
+      '
+  # Redis
+  redis-stack:
+    image: redis/redis-stack:latest
+    container_name: redis-stack
+    hostname: redis-stack
+    networks:
+      - mongonet
+    volumes:
+      - redis-stack-data:/data
+    ports:
+      - "8001:8001"
+      - "6379:6379"
+  # Kafka
+  kafka1:
+    image: docker.io/bitnami/kafka:3.6
+    hostname: kafka1
+    container_name: kafka1
+    ports:
+      - target: 9192
+        published: 9192
+        protocol: tcp
+      - target: 9193
+        published: 9193
+        protocol: tcp
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_BROKER_ID=1
+      - KAFKA_CFG_BROKER_RACK=RACK1
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9193,DOCKER_EXTERNAL://kafka1:9192,DOCKER_INTERNAL://kafka1:19192
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,DOCKER_EXTERNAL:PLAINTEXT,DOCKER_INTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=DOCKER_INTERNAL
+      - KAFKA_CFG_ADVERTISED_LISTENERS=DOCKER_EXTERNAL://kafka1:9192,DOCKER_INTERNAL://kafka1:19192
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9193,2@kafka2:9293,3@kafka3:9393
+      - KAFKA_KRAFT_CLUSTER_ID=NTg2OWZhNzY3NDhjMTFlZG
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    #      - KAFKA_OPTS=-Dlog4j.rootLogger=DEBUG
+    volumes:
+      - kafka1_data:/bitnami/kafka
+    networks:
+      - kafkanet
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'test-message' | kafka-console-producer.sh --broker-list kafka1:9192 --topic health-check-topic && kafka-console-consumer.sh --bootstrap-server kafka1:9192 --topic health-check-topic --from-beginning --max-messages 1 | grep 'test-message'"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+
+  kafka2:
+    image: docker.io/bitnami/kafka:3.6
+    hostname: kafka2
+    container_name: kafka2
+    ports:
+      - target: 9292
+        published: 9292
+        protocol: tcp
+      - target: 9293
+        published: 9293
+        protocol: tcp
+    environment:
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_BROKER_ID=2
+      - KAFKA_CFG_BROKER_RACK=RACK1
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9293,DOCKER_EXTERNAL://kafka2:9292,DOCKER_INTERNAL://kafka2:19292
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,DOCKER_EXTERNAL:PLAINTEXT,DOCKER_INTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=DOCKER_INTERNAL
+      - KAFKA_CFG_ADVERTISED_LISTENERS=DOCKER_EXTERNAL://kafka2:9292,DOCKER_INTERNAL://kafka2:19292
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9193,2@kafka2:9293,3@kafka3:9393
+      - KAFKA_KRAFT_CLUSTER_ID=NTg2OWZhNzY3NDhjMTFlZG
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    #      - KAFKA_OPTS=-Dlog4j.rootLogger=DEBUG
+    volumes:
+      - kafka2_data:/bitnami/kafka
+    networks:
+      - kafkanet
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'test-message' | kafka-console-producer.sh --broker-list kafka2:9292 --topic health-check-topic && kafka-console-consumer.sh --bootstrap-server kafka2:9292 --topic health-check-topic --from-beginning --max-messages 1 | grep 'test-message'"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+
+  kafka3:
+    image: docker.io/bitnami/kafka:3.6
+    hostname: kafka3
+    container_name: kafka3
+    ports:
+      - target: 9392
+        published: 9392
+        protocol: tcp
+      - target: 9393
+        published: 9393
+        protocol: tcp
+    environment:
+      - KAFKA_CFG_NODE_ID=3
+      - KAFKA_CFG_BROKER_ID=3
+      - KAFKA_CFG_BROKER_RACK=RACK1
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9393,DOCKER_EXTERNAL://kafka3:9392,DOCKER_INTERNAL://kafka3:19392
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,DOCKER_EXTERNAL:PLAINTEXT,DOCKER_INTERNAL:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=DOCKER_INTERNAL
+      - KAFKA_CFG_ADVERTISED_LISTENERS=DOCKER_EXTERNAL://kafka3:9392,DOCKER_INTERNAL://kafka3:19392
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka1:9193,2@kafka2:9293,3@kafka3:9393
+      - KAFKA_KRAFT_CLUSTER_ID=NTg2OWZhNzY3NDhjMTFlZG
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    #      - KAFKA_OPTS=-Dlog4j.rootLogger=DEBUG
+    volumes:
+      - kafka3_data:/bitnami/kafka
+    networks:
+      - kafkanet
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'test-message' | kafka-console-producer.sh --broker-list kafka3:9392 --topic health-check-topic && kafka-console-consumer.sh --bootstrap-server kafka3:9392 --topic health-check-topic --from-beginning --max-messages 1 | grep 'test-message'"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  redis-stack-data:
+    driver: local
+  kafka1_data:
+    driver: local
+  kafka2_data:
+    driver: local
+  kafka3_data:
+    driver: local
+
+networks:
+  mongonet: {}
+  kafkanet:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/16
