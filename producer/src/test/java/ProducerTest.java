@@ -128,7 +128,6 @@ public class ProducerTest {
         Rent rent2 = new Rent(UUID.randomUUID(), LocalDateTime.now().plusHours(4),client, car);
         RentMgd rentMgd2 = new RentMgd(rent2, clientMgd, carMgd);
         KafkaMessage kafkaMessage2 = new KafkaMessage("rental 2", rentMgd2);
-        Producer.sendMessage(rent.getId(), mapper.writeValueAsString(kafkaMessage));
         Producer.sendMessage(rentMgd2.getId(), mapper.writeValueAsString(kafkaMessage2));
 
     }

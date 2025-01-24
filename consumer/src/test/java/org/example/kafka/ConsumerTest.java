@@ -23,7 +23,7 @@ public class ConsumerTest {
             executorService.execute(() -> {Consumer.consume(consumer);});
         }
 
-        Thread.sleep(30000);
+        Thread.sleep(50000);
         for (KafkaConsumer<UUID, String> consumer : consumerGroup) {
             consumer.wakeup();
         }

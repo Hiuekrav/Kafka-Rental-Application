@@ -22,9 +22,18 @@ import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.Conventions;
 import org.bson.codecs.pojo.PojoCodecProvider;
 import org.example.mgd.RentMgd;
+import org.example.mgd.clientType.ClientTypeMgd;
+import org.example.mgd.clientType.DefaultMgd;
+import org.example.mgd.clientType.GoldMgd;
+import org.example.mgd.clientType.SilverMgd;
+import org.example.mgd.vehicle.BicycleMgd;
+import org.example.mgd.vehicle.CarMgd;
+import org.example.mgd.vehicle.MopedMgd;
+import org.example.mgd.vehicle.VehicleMgd;
 import org.example.model.Rent;
 import org.example.repositories.mongo.implementations.RentRepository;
 import org.example.repositories.mongo.implementations.VehicleRepository;
+import org.example.services.implementations.ObjectService;
 import org.example.services.implementations.RentService;
 import org.example.utils.consts.DatabaseConstants;
 
@@ -38,6 +47,7 @@ public class Consumer {
     public static List<KafkaConsumer<UUID, String>> consumerGroup = new ArrayList<>();
     public static MongoClient mongoClient;
     public static RentRepository rentRepository;
+    public static VehicleRepository vehicleRepository;
 
     public static void initConsumer() {
         Properties consumerConfig = new Properties();
@@ -57,7 +67,7 @@ public class Consumer {
 
     public static void consume(KafkaConsumer<UUID, String> consumer) {
         String result;
-        //List<RentMgd> rents = new ArrayList<>();
+        List<RentMgd> rents = new ArrayList<>();
         try{
             Duration timeout = Duration.of(100, ChronoUnit.MILLIS);
             while(true) {
@@ -71,9 +81,11 @@ public class Consumer {
                         System.out.println("Found rent:" + result);
                         KafkaMessage message = mapper.readValue(result, KafkaMessage.class);
                         try {
+                            vehicleRepository.changeRentedStatus(message.getRent().getVehicle().getId(), true);
                             rentRepository.save(message.getRent());
+                            rents.add(message.getRent());
                         } catch (RuntimeException e) {
-                            System.out.println(e.getMessage());
+                            System.out.println("Error: "+e.getMessage());
                         }
                     }
                 }
@@ -81,6 +93,7 @@ public class Consumer {
         }
         catch (WakeupException e) {
             System.out.println("Job finished!");
+            System.out.println("Rents found: " + rents.size());
         }
         catch (JsonProcessingException e) {
             throw new RuntimeException(e);
@@ -95,6 +108,14 @@ public class Consumer {
 
         CodecRegistry pojoCodecRegistry = CodecRegistries.fromProviders(PojoCodecProvider.builder()
                 .automatic(true)
+                .register(VehicleMgd.class)
+                .register(CarMgd.class)
+                .register(MopedMgd.class)
+                .register(BicycleMgd.class)
+                .register(ClientTypeMgd.class)
+                .register(DefaultMgd.class)
+                .register(SilverMgd.class)
+                .register(GoldMgd.class)
                 .conventions(List.of(Conventions.ANNOTATION_CONVENTION)).build());
 
         MongoClientSettings settings = MongoClientSettings.builder()
@@ -112,6 +133,7 @@ public class Consumer {
                 .build();
         mongoClient = MongoClients.create(settings);
         rentRepository = new RentRepository(mongoClient);
+        vehicleRepository = new VehicleRepository(mongoClient);
     }
 
 }
