@@ -1,5 +1,5 @@
 # Kafka Rental Application
-This repository contains a solution for a Kafka-based rental application. The application is built on top of the NBD-Rental-Mongo-and-Redis project (https://github.com/wiktoriaBi/NBD-Rental-Mongo-and-Redis), which has been extended to include Kafka producers and consumers. The project is divided into two modules: producer and consumer, each responsible for sending and receiving rental data, respectively.
+This repository contains a solution for a Kafka-based rental application. The application is built on top of the NBD-Rental-Mongo-and-Redis project (https://github.com/wiktoriaBi/Mongo-and-Redis-Rental-Application), which has been extended to include Kafka producers and consumers. The project is divided into two modules: producer and consumer, each responsible for sending and receiving rental data, respectively.
 
 ## Overview
 The application consists of the following components:
@@ -29,8 +29,8 @@ The project is divided into two modules:
 
 ### Setup
 - Clone this repository.
-- Set up MongoDB replica set, Redis and Kafka Cluster by running services directly from docker-compose using IDE or by executing ***docker-compose up -d*** command.
-- Create the rents topic (use the terminal on any kafka node): ***/opt/bitnami/kafka/bin/kafka-topics.sh --create --topic rents --bootstrap-server kafka1:9192 --partitions 3 --replication-factor 3***
+- Set up MongoDB replica set, Redis and Kafka Cluster by running services directly from docker-compose using IDE or by executing ```docker-compose up -d``` command.
+- Create the rents topic (use the terminal on any kafka node): ```/opt/bitnami/kafka/bin/kafka-topics.sh --create --topic rents --bootstrap-server kafka1:9192 --partitions 3 --replication-factor 3```
 
 ### Testing
 1. **Run the Consumer tests separately and the Producer test:**
@@ -45,8 +45,8 @@ You should see 3 different Run tabs with readMessages1, readMessages2 and sendRe
 
 ## Additional Notes
 Useful Kafka commands:
-- Describe Consumer Group: ***kafka-consumer-groups.sh --bootstrap-server kafka1:9192 --describe --group clients***
-- Start reading messages from the beginning of the topic: ***kafka-console-consumer.sh --bootstrap-server kafka1:9192 --topic rents --from-beginning***
+- Describe Consumer Group: ```kafka-consumer-groups.sh --bootstrap-server kafka1:9192 --describe --group clients```
+- Start reading messages from the beginning of the topic: ```kafka-console-consumer.sh --bootstrap-server kafka1:9192 --topic rents --from-beginning```
 
 ## Authors
 ### Wiktoria Bilecka
